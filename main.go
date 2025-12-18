@@ -3,26 +3,30 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type ExchangeRates struct {
-	Base  string             `json:"base"`
-	Date  string             `json:"date"`
-	Rates map[string]float64 `json:"rates"`
+	Code string             `json:"code"`
+	CodeIn string             `json:"codein"`
+	Name string             `json:"name"`
+	High string             `json:"high"`
+	Low string             `json:"low"`
+	VarBid string          `json:"varBid"`
+	PctChange string       `json:"pctChange"`
+	Bid string             `json:"bid"`
+	Ask string             `json:"ask"`
+	Timestamp string       `json:"timestamp"`
+	CreateDate string      `json:"create_date"`
 }
 
 
 
 func main(){
-
-	data, err := loadRates("./rates.json")
-    if err != nil {
-        fmt.Println("Erro fatal:", err)
-        return
-    }
 	
 	arguments := os.Args[1:]
 	if len(arguments) != 2 {
@@ -34,31 +38,47 @@ func main(){
 		fmt.Println("Error: The first argument must be a valid float.")
 		return
 	}
-	coinType := arguments[1]
-	coinType = strings.ToUpper(coinType)
-	rate, exists := data.Rates[coinType]
-	if !exists {
-		fmt.Printf("Error: Currency type '%s' not found.\n", coinType)
+
+	coinType := strings.ToUpper(arguments[1])
+	rate, err := getRate(ExchangeRates{}, coinType)
+	if err != nil {
+		fmt.Printf("Error fetching exchange rate: %v\n", err)
 		return
 	}
 	convertedValue := value * rate
+
 	fmt.Printf("Converted value: %.2f %s\n", convertedValue, coinType)
 }
 
-func loadRates(filepath string) (ExchangeRates, error) {
-	var rates ExchangeRates
 
-	content, err := os.ReadFile(filepath)
+
+func getRate(data ExchangeRates, coinType string) (float64, error) {
+
+	var url string = fmt.Sprintf("https://economia.awesomeapi.com.br/json/last/%s-BRL", coinType)
+	resp, err := http.Get(url)
 	if err != nil {
-		return rates, fmt.Errorf("error reading file: %v", err)
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
 	}
 
-	err = json.Unmarshal(content, &rates)
+	var rateData map[string]ExchangeRates
+	err = json.Unmarshal(body, &rateData)
+
 	if err != nil {
-		return rates, fmt.Errorf("error unmarshaling JSON: %v", err)
+		return 0, err
 	}
 
-	return rates, nil
+	keyValue := fmt.Sprintf("%sBRL", coinType)
+
+	rate, exists := rateData[keyValue]
+	if !exists {
+		return 0, fmt.Errorf("currency type '%s' not found", coinType)
+	}
+
+	return strconv.ParseFloat(rate.Bid, 64)
 }
-
-
