@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -40,7 +40,7 @@ func main(){
 	}
 
 	coinType := strings.ToUpper(arguments[1])
-	rate, err := getRate(ExchangeRates{}, coinType)
+	rate, err := getRate(coinType)
 	if err != nil {
 		fmt.Printf("Error fetching exchange rate: %v\n", err)
 		return
@@ -52,32 +52,45 @@ func main(){
 
 
 
-func getRate(data ExchangeRates, coinType string) (float64, error) {
+func getRate(coinType string) (float64, error) {
+	url := fmt.Sprintf("https://economia.awesomeapi.com.br/json/last/%s-BRL", coinType)
 
-	var url string = fmt.Sprintf("https://economia.awesomeapi.com.br/json/last/%s-BRL", coinType)
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == 429 {
+			return 0, fmt.Errorf("erro e429: The api rate limit has been exceeded")
+		}
+		return 0, fmt.Errorf("The api returned status error: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
 	}
 
 	var rateData map[string]ExchangeRates
 	err = json.Unmarshal(body, &rateData)
-
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error parsing JSON: %v", err)
 	}
 
 	keyValue := fmt.Sprintf("%sBRL", coinType)
-
 	rate, exists := rateData[keyValue]
 	if !exists {
-		return 0, fmt.Errorf("currency type '%s' not found", coinType)
+		return 0, fmt.Errorf("rate for '%s' not found", coinType)
 	}
 
 	return strconv.ParseFloat(rate.Bid, 64)
