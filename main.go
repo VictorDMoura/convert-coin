@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type ExchangeRates struct {
@@ -34,8 +35,14 @@ func main(){
 		return
 	}
 	coinType := arguments[1]
-	fmt.Printf("Value: %.2f, Coin Type: %s\n", value, coinType)
-	fmt.Println("Taxa do USD carregada:", data.Rates["USD"])
+	coinType = strings.ToUpper(coinType)
+	rate, exists := data.Rates[coinType]
+	if !exists {
+		fmt.Printf("Error: Currency type '%s' not found.\n", coinType)
+		return
+	}
+	convertedValue := value * rate
+	fmt.Printf("Converted value: %.2f %s\n", convertedValue, coinType)
 }
 
 func loadRates(filepath string) (ExchangeRates, error) {
