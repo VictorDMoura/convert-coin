@@ -26,10 +26,10 @@
    ```bash
    git clone [https://github.com/VictorDMoura/convert-coin.git](https://github.com/VictorDMoura/convert-coin.git)
    cd convert-coin
-
-```
+    ```
 
 2. **Run directly:**
+
 Pass the amount and the currency code you want to check against BRL (Brazilian Real).
 ```bash
 go run main.go <amount> <currency>
